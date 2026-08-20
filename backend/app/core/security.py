@@ -3,20 +3,20 @@ Funções de segurança: hash de senha e geração/validação de tokens JWT.
 """
 from datetime import datetime, timedelta, timezone
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 def hash_senha(senha: str) -> str:
-    return pwd_context.hash(senha)
+    senha_bytes = senha.encode("utf-8")
+    hash_bytes = bcrypt.hashpw(senha_bytes, bcrypt.gensalt())
+    return hash_bytes.decode("utf-8")
 
 
 def verificar_senha(senha_plana: str, senha_hash: str) -> bool:
-    return pwd_context.verify(senha_plana, senha_hash)
+    return bcrypt.checkpw(senha_plana.encode("utf-8"), senha_hash.encode("utf-8"))
 
 
 def criar_access_token(subject: str, extra_claims: dict | None = None) -> str:
