@@ -3,6 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.movimentacao import TipoMovimentacao
+from app.models.produto import TipoEstoque
 
 
 class MovimentacaoCreate(BaseModel):
@@ -45,8 +46,10 @@ class CorResumo(BaseModel):
 class ProdutoResumo(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
-    modelo: ModeloResumo
-    cor: CorResumo
+    tipo_estoque: TipoEstoque
+    modelo: ModeloResumo | None = None
+    cor: CorResumo | None = None
+    nome: str | None = None
 
 
 class MovimentacaoOut(BaseModel):

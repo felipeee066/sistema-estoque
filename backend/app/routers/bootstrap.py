@@ -1,6 +1,14 @@
 """
 Endpoint de inicialização (bootstrap): cria o primeiro usuário administrador
 sem precisar de acesso a um terminal (Shell) no servidor.
+
+Segurança:
+- Só funciona se AINDA NÃO existir nenhum usuário no banco.
+- Exige uma "senha mestra" (BOOTSTRAP_SECRET) definida como variável de
+  ambiente no servidor — sem ela, ninguém consegue usar esse endpoint.
+- Assim que o primeiro usuário é criado, o endpoint passa a recusar
+  qualquer nova tentativa automaticamente (não precisa remover o código
+  depois de usar).
 """
 import os
 
@@ -35,6 +43,7 @@ def bootstrap_admin(
     try:
         repo = UsuarioRepository(db)
 
+        # Trava de segurança: só permite se o banco ainda não tiver NENHUM usuário.
         if repo.list():
             raise HTTPException(
                 status.HTTP_409_CONFLICT,

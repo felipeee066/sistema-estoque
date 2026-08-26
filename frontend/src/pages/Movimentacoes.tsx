@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { movimentacaoService } from "@/services/movimentacaoService";
 import { modeloService } from "@/services/modeloService";
 import { corService } from "@/services/corService";
-import type { Cor, Modelo, Movimentacao, TipoMovimentacao } from "@/types";
+import type { Cor, Modelo, Movimentacao, TipoEstoque, TipoMovimentacao } from "@/types";
 
 const TAMANHO_PAGINA = 20;
 
@@ -18,8 +18,21 @@ const coresTipo: Record<TipoMovimentacao, string> = {
   AJUSTE: "text-slate-600",
 };
 
+const rotulosEstoque: Record<TipoEstoque, string> = {
+  PECA: "Peça",
+  CAIXA: "Caixa",
+  EMBALAGEM: "Embalagem",
+};
+
 function formatarData(iso: string) {
   return new Date(iso).toLocaleString("pt-BR");
+}
+
+function descricaoProduto(m: Movimentacao): string {
+  if (m.produto.tipo_estoque === "PECA") {
+    return `${m.produto.modelo?.nome ?? "?"} — ${m.produto.cor?.nome ?? "?"}`;
+  }
+  return m.produto.nome ?? "?";
 }
 
 export default function Movimentacoes() {
@@ -28,6 +41,7 @@ export default function Movimentacoes() {
   const [pagina, setPagina] = useState(1);
   const [carregando, setCarregando] = useState(true);
 
+  const [tipoEstoque, setTipoEstoque] = useState<TipoEstoque | "">("");
   const [modeloId, setModeloId] = useState<number | "">("");
   const [corId, setCorId] = useState<number | "">("");
   const [tipo, setTipo] = useState<TipoMovimentacao | "">("");
@@ -46,8 +60,8 @@ export default function Movimentacoes() {
     setCarregando(true);
     movimentacaoService
       .listar({
-        modelo_id: modeloId || undefined,
-        cor_id: corId || undefined,
+        modelo_id: tipoEstoque === "PECA" || !tipoEstoque ? modeloId || undefined : undefined,
+        cor_id: tipoEstoque === "PECA" || !tipoEstoque ? corId || undefined : undefined,
         tipo: tipo || undefined,
         data_inicio: dataInicio ? new Date(dataInicio).toISOString() : undefined,
         data_fim: dataFim ? new Date(dataFim).toISOString() : undefined,
@@ -55,11 +69,14 @@ export default function Movimentacoes() {
         tamanho_pagina: TAMANHO_PAGINA,
       })
       .then((r) => {
-        setItens(r.itens);
-        setTotal(r.total);
+        const filtrados = tipoEstoque
+          ? r.itens.filter((m) => m.produto.tipo_estoque === tipoEstoque)
+          : r.itens;
+        setItens(filtrados);
+        setTotal(tipoEstoque ? filtrados.length : r.total);
       })
       .finally(() => setCarregando(false));
-  }, [modeloId, corId, tipo, dataInicio, dataFim, pagina]);
+  }, [tipoEstoque, modeloId, corId, tipo, dataInicio, dataFim, pagina]);
 
   const totalPaginas = Math.max(1, Math.ceil(total / TAMANHO_PAGINA));
 
@@ -69,45 +86,66 @@ export default function Movimentacoes() {
 
       <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 flex flex-wrap gap-3 items-end">
         <div>
-          <label className="block text-xs text-slate-500 mb-1">Modelo</label>
+          <label className="block text-xs text-slate-500 mb-1">Tipo de estoque</label>
           <select
-            value={modeloId}
+            value={tipoEstoque}
             onChange={(e) => {
               setPagina(1);
-              setModeloId(e.target.value ? Number(e.target.value) : "");
+              setTipoEstoque(e.target.value as TipoEstoque | "");
             }}
             className="border border-slate-300 rounded-md px-3 py-2 text-sm"
           >
             <option value="">Todos</option>
-            {modelos.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.nome}
-              </option>
-            ))}
+            <option value="PECA">Peças</option>
+            <option value="CAIXA">Caixas</option>
+            <option value="EMBALAGEM">Embalagens</option>
           </select>
         </div>
 
-        <div>
-          <label className="block text-xs text-slate-500 mb-1">Cor</label>
-          <select
-            value={corId}
-            onChange={(e) => {
-              setPagina(1);
-              setCorId(e.target.value ? Number(e.target.value) : "");
-            }}
-            className="border border-slate-300 rounded-md px-3 py-2 text-sm"
-          >
-            <option value="">Todas</option>
-            {cores.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nome}
-              </option>
-            ))}
-          </select>
-        </div>
+        {(tipoEstoque === "PECA" || !tipoEstoque) && (
+          <>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">Modelo</label>
+              <select
+                value={modeloId}
+                onChange={(e) => {
+                  setPagina(1);
+                  setModeloId(e.target.value ? Number(e.target.value) : "");
+                }}
+                className="border border-slate-300 rounded-md px-3 py-2 text-sm"
+              >
+                <option value="">Todos</option>
+                {modelos.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">Cor</label>
+              <select
+                value={corId}
+                onChange={(e) => {
+                  setPagina(1);
+                  setCorId(e.target.value ? Number(e.target.value) : "");
+                }}
+                className="border border-slate-300 rounded-md px-3 py-2 text-sm"
+              >
+                <option value="">Todas</option>
+                {cores.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
+        )}
 
         <div>
-          <label className="block text-xs text-slate-500 mb-1">Tipo</label>
+          <label className="block text-xs text-slate-500 mb-1">Movimento</label>
           <select
             value={tipo}
             onChange={(e) => {
@@ -160,9 +198,9 @@ export default function Movimentacoes() {
             <thead>
               <tr className="text-left text-slate-500 border-b border-slate-200">
                 <th className="px-4 py-3 font-medium">Data</th>
-                <th className="px-4 py-3 font-medium">Modelo</th>
-                <th className="px-4 py-3 font-medium">Cor</th>
-                <th className="px-4 py-3 font-medium">Tipo</th>
+                <th className="px-4 py-3 font-medium">Tipo de estoque</th>
+                <th className="px-4 py-3 font-medium">Item</th>
+                <th className="px-4 py-3 font-medium">Movimento</th>
                 <th className="px-4 py-3 font-medium text-right">Quantidade</th>
                 <th className="px-4 py-3 font-medium text-right">Antes</th>
                 <th className="px-4 py-3 font-medium text-right">Depois</th>
@@ -176,8 +214,8 @@ export default function Movimentacoes() {
                   <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
                     {formatarData(m.data_movimentacao)}
                   </td>
-                  <td className="px-4 py-3 text-slate-700">{m.produto.modelo.nome}</td>
-                  <td className="px-4 py-3 text-slate-700">{m.produto.cor.nome}</td>
+                  <td className="px-4 py-3 text-slate-500">{rotulosEstoque[m.produto.tipo_estoque]}</td>
+                  <td className="px-4 py-3 text-slate-700">{descricaoProduto(m)}</td>
                   <td className={`px-4 py-3 font-medium ${coresTipo[m.tipo_movimentacao]}`}>
                     {rotulosTipo[m.tipo_movimentacao]}
                   </td>

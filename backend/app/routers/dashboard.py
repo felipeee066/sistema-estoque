@@ -4,13 +4,40 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.dependencies.auth import get_current_user
-from app.models.produto import Produto
+from app.models.produto import Produto, TipoEstoque
 from app.models.usuario import Usuario
 from app.repositories.movimentacao_repository import MovimentacaoRepository
 from app.repositories.produto_repository import ProdutoRepository
-from app.schemas.dashboard import DashboardResponse
+from app.schemas.dashboard import DashboardResponse, ResumoTipoEstoque
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+
+
+def _resumo_tipo(db: Session, tipo: TipoEstoque) -> ResumoTipoEstoque:
+    total = db.execute(
+        select(func.count())
+        .select_from(Produto)
+        .where(Produto.ativo.is_(True), Produto.tipo_estoque == tipo)
+    ).scalar_one()
+
+    baixos = db.execute(
+        select(func.count())
+        .select_from(Produto)
+        .where(
+            Produto.ativo.is_(True),
+            Produto.tipo_estoque == tipo,
+            Produto.quantidade > 0,
+            Produto.quantidade <= Produto.estoque_minimo,
+        )
+    ).scalar_one()
+
+    zerados = db.execute(
+        select(func.count())
+        .select_from(Produto)
+        .where(Produto.ativo.is_(True), Produto.tipo_estoque == tipo, Produto.quantidade == 0)
+    ).scalar_one()
+
+    return ResumoTipoEstoque(total_itens=total, itens_estoque_baixo=baixos, itens_zerados=zerados)
 
 
 @router.get("", response_model=DashboardResponse)
@@ -18,28 +45,17 @@ def obter_dashboard(
     db: Session = Depends(get_db),
     _usuario: Usuario = Depends(get_current_user),
 ):
-    total_produtos = db.execute(
-        select(func.count()).select_from(Produto).where(Produto.ativo.is_(True))
-    ).scalar_one()
-
-    total_itens_estoque = db.execute(
-        select(func.coalesce(func.sum(Produto.quantidade), 0)).where(Produto.ativo.is_(True))
-    ).scalar_one()
-
-    produto_repo = ProdutoRepository(db)
-    baixos, total_baixos = produto_repo.list(status="BAIXO", apenas_ativos=True, pagina=1, tamanho_pagina=5)
-    zerados, total_zerados = produto_repo.list(status="ZERADO", apenas_ativos=True, pagina=1, tamanho_pagina=5)
-
     ultimas = MovimentacaoRepository(db).ultimas(limite=10)
 
-    # produtos críticos para destaque no dashboard: zerados primeiro, depois baixos
-    produtos_criticos = (zerados + baixos)[:8]
+    produto_repo = ProdutoRepository(db)
+    criticos_peca = produto_repo.list_abaixo_minimo(tipo_estoque=TipoEstoque.PECA)[:5]
+    criticos_caixa = produto_repo.list_abaixo_minimo(tipo_estoque=TipoEstoque.CAIXA)[:3]
+    criticos_embalagem = produto_repo.list_abaixo_minimo(tipo_estoque=TipoEstoque.EMBALAGEM)[:3]
 
     return DashboardResponse(
-        total_produtos=total_produtos,
-        total_itens_estoque=int(total_itens_estoque),
-        produtos_estoque_baixo=total_baixos,
-        produtos_zerados=total_zerados,
+        pecas=_resumo_tipo(db, TipoEstoque.PECA),
+        caixas=_resumo_tipo(db, TipoEstoque.CAIXA),
+        embalagens=_resumo_tipo(db, TipoEstoque.EMBALAGEM),
         ultimas_movimentacoes=ultimas,
-        produtos_criticos=produtos_criticos,
+        produtos_criticos=criticos_peca + criticos_caixa + criticos_embalagem,
     )

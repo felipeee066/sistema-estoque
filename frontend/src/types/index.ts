@@ -28,11 +28,15 @@ export interface Cor {
 }
 
 export type StatusEstoque = "NORMAL" | "BAIXO" | "ZERADO";
+export type TipoEstoque = "PECA" | "CAIXA" | "EMBALAGEM";
 
 export interface Produto {
   id: number;
-  modelo: Modelo;
-  cor: Cor;
+  tipo_estoque: TipoEstoque;
+  modelo: Modelo | null;
+  cor: Cor | null;
+  nome: string | null;
+  descricao: string;
   quantidade: number;
   estoque_minimo: number;
   ativo: boolean;
@@ -54,8 +58,10 @@ export interface Movimentacao {
   id: number;
   produto: {
     id: number;
-    modelo: { id: number; nome: string };
-    cor: { id: number; nome: string };
+    tipo_estoque: TipoEstoque;
+    modelo: { id: number; nome: string } | null;
+    cor: { id: number; nome: string } | null;
+    nome: string | null;
   };
   usuario: { id: number; nome: string };
   tipo_movimentacao: TipoMovimentacao;
@@ -74,11 +80,35 @@ export interface MovimentacaoListResponse {
   itens: Movimentacao[];
 }
 
+export interface ResumoTipoEstoque {
+  total_itens: number;
+  itens_estoque_baixo: number;
+  itens_zerados: number;
+}
+
 export interface DashboardData {
-  total_produtos: number;
-  total_itens_estoque: number;
-  produtos_estoque_baixo: number;
-  produtos_zerados: number;
+  pecas: ResumoTipoEstoque;
+  caixas: ResumoTipoEstoque;
+  embalagens: ResumoTipoEstoque;
   ultimas_movimentacoes: Movimentacao[];
   produtos_criticos: Produto[];
+}
+
+export interface ItemRelatorio {
+  id: number;
+  tipo_estoque: TipoEstoque;
+  modelo: string | null;
+  cor: string | null;
+  nome: string | null;
+  quantidade_atual: number;
+  quantidade_minima: number;
+  quantidade_faltante: number;
+}
+
+export interface RelatorioReposicao {
+  gerado_em: string;
+  total_itens: number;
+  pecas: ItemRelatorio[];
+  caixas: ItemRelatorio[];
+  embalagens: ItemRelatorio[];
 }

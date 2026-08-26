@@ -21,7 +21,17 @@ app.add_middleware(
 )
 
 # Routers
-from app.routers import auth, bootstrap, cores, dashboard, estoque, modelos, movimentacoes, usuarios
+from app.routers import (
+    auth,
+    bootstrap,
+    cores,
+    dashboard,
+    estoque,
+    modelos,
+    movimentacoes,
+    relatorios,
+    usuarios,
+)
 
 app.include_router(auth.router)
 app.include_router(modelos.router)
@@ -30,6 +40,7 @@ app.include_router(estoque.router)
 app.include_router(movimentacoes.router)
 app.include_router(usuarios.router)
 app.include_router(dashboard.router)
+app.include_router(relatorios.router)
 app.include_router(bootstrap.router)
 
 
